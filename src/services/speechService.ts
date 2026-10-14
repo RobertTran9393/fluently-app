@@ -263,6 +263,47 @@ export class SpeechService {
     }
   }
 
+  // Helper: Calculate Levenshtein distance between two strings
+  private static levenshtein(a: string, b: string): number {
+    const an = a.length;
+    const bn = b.length;
+    if (an === 0) return bn;
+    if (bn === 0) return an;
+
+    const matrix: number[][] = [];
+    for (let i = 0; i <= bn; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= an; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= bn; i++) {
+      for (let j = 1; j <= an; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1, // substitution
+            matrix[i][j - 1] + 1,     // insertion
+            matrix[i - 1][j] + 1      // deletion
+          );
+        }
+      }
+    }
+
+    return matrix[bn][an];
+  }
+
+  // Helper: Similarity ratio between 0.0 and 1.0
+  private static calculateWordSimilarity(w1: string, w2: string): number {
+    if (w1 === w2) return 1.0;
+    const maxLen = Math.max(w1.length, w2.length);
+    if (maxLen === 0) return 1.0;
+    const dist = SpeechService.levenshtein(w1, w2);
+    return Math.max(0, 1 - dist / maxLen);
+  }
+
   // Score pronunciation accuracy between spoken text and target
   public static calculateAccuracy(spoken: string, target: string): {
     score: number;
@@ -271,8 +312,17 @@ export class SpeechService {
     isCorrect: boolean;
     statusText: string;
   } {
-    const cleanSpoken = spoken.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?]/g, '').trim();
-    const cleanTarget = target.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?]/g, '').trim();
+    const cleanSpoken = spoken
+      .toLowerCase()
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()?]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const cleanTarget = target
+      .toLowerCase()
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()?]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     if (!cleanSpoken) {
       return {
@@ -287,7 +337,7 @@ export class SpeechService {
     const targetWords = cleanTarget.split(/\s+/).filter(Boolean);
     const spokenWords = cleanSpoken.split(/\s+/).filter(Boolean);
 
-    // Exact direct match
+    // EXACT DIRECT MATCH
     if (cleanSpoken === cleanTarget) {
       const details = targetWords.map((w) => ({ word: w, matched: true }));
       return {
@@ -299,34 +349,103 @@ export class SpeechService {
       };
     }
 
-    let matchedCount = 0;
-    const details = targetWords.map((tWord) => {
-      const isMatched = spokenWords.some((sWord) => {
-        if (sWord === tWord) return true;
-        // Check near match
-        if (sWord.length > 3 && tWord.length > 3) {
-          return sWord.startsWith(tWord.slice(0, 3)) || tWord.startsWith(sWord.slice(0, 3));
+    // -------------------------------------------------------------------
+    // CASE 1: TARGET IS A SINGLE WORD (e.g. "pleasure", "comfortable")
+    // -------------------------------------------------------------------
+    if (targetWords.length === 1) {
+      const tWord = targetWords[0];
+
+      // Did user say the exact target word anywhere in spoken words?
+      if (spokenWords.includes(tWord)) {
+        return {
+          score: 100,
+          feedback: `🎉 Hoàn hảo! Bạn đã phát âm chính xác từ "${tWord}"!`,
+          details: [{ word: tWord, matched: true }],
+          isCorrect: true,
+          statusText: 'ĐÃ ĐỌC CHÍNH XÁC',
+        };
+      }
+
+      // Find the highest similarity between any spoken word and the target
+      let bestSimilarity = 0;
+      let closestSpokenWord = spokenWords[0] || '';
+      for (const sWord of spokenWords) {
+        const sim = SpeechService.calculateWordSimilarity(sWord, tWord);
+        if (sim > bestSimilarity) {
+          bestSimilarity = sim;
+          closestSpokenWord = sWord;
         }
-        return false;
-      });
-      if (isMatched) matchedCount++;
+      }
+
+      const score = Math.round(bestSimilarity * 100);
+
+      // Strict threshold for single words: must be at least 88% to count as correct
+      // For instance: "pleasure" vs "please" has similarity ~62% -> isCorrect is strictly FALSE!
+      const isCorrect = bestSimilarity >= 0.88;
+
+      let feedback = '';
+      let statusText = '';
+
+      if (isCorrect) {
+        feedback = `🎉 Xuất sắc! Phát âm từ "${tWord}" rất chuẩn xác!`;
+        statusText = 'ĐÃ ĐỌC CHÍNH XÁC';
+      } else if (score >= 60) {
+        feedback = `⚠️ Bạn vừa đọc là "${closestSpokenWord}", chưa khớp với từ mẫu "${tWord}". Hãy nghe lại mẫu và chú ý phát âm rõ âm đuôi nhé!`;
+        statusText = `CHƯA CHÍNH XÁC (${score}%)`;
+      } else {
+        feedback = `🎯 Chưa chính xác: Bạn vừa đọc là "${closestSpokenWord}", khác với từ mẫu "${tWord}". Bấm nghe mẫu và thử đọc lại nhé!`;
+        statusText = `CHƯA ĐẠT CHUẨN (${score}%)`;
+      }
+
+      return {
+        score,
+        feedback,
+        details: [{ word: tWord, matched: isCorrect }],
+        isCorrect,
+        statusText,
+      };
+    }
+
+    // -------------------------------------------------------------------
+    // CASE 2: TARGET IS A SENTENCE OR PHRASE (e.g. "It is a pleasure to meet you")
+    // -------------------------------------------------------------------
+    let totalWordSim = 0;
+    const details = targetWords.map((tWord) => {
+      let bestSim = 0;
+      for (const sWord of spokenWords) {
+        const sim = SpeechService.calculateWordSimilarity(sWord, tWord);
+        if (sim > bestSim) bestSim = sim;
+      }
+      totalWordSim += bestSim;
+      // Word is matched if similarity is at least 0.80
+      const isMatched = bestSim >= 0.80;
       return { word: tWord, matched: isMatched };
     });
 
-    const score = Math.min(100, Math.round((matchedCount / Math.max(1, targetWords.length)) * 100));
-    const isCorrect = score >= 75;
+    const averageSim = totalWordSim / targetWords.length;
+    const matchedCount = details.filter((d) => d.matched).length;
+    const matchRatio = matchedCount / targetWords.length;
+
+    const score = Math.min(100, Math.round(averageSim * 100));
+
+    // A sentence is correct if overall similarity >= 82% AND at least 80% of words matched
+    const isCorrect = score >= 82 && matchRatio >= 0.80;
 
     let feedback = '';
     let statusText = '';
+
     if (isCorrect) {
-      feedback = '🎉 Xuất sắc! Phát âm rất chuẩn xác và rõ ràng!';
+      feedback = '🎉 Xuất sắc! Phát âm cả câu rất chuẩn xác và trôi chảy!';
       statusText = 'ĐÃ ĐỌC CHÍNH XÁC';
     } else if (score >= 50) {
-      feedback = '👍 Khá tốt! Bạn phát âm tương đối giống, hãy chú ý nhấn âm và phát âm rõ âm đuôi nhé!';
-      statusText = 'CẦN CẢI THIỆN ÂM ĐUÔI';
+      const missedWords = details.filter((d) => !d.matched).map((d) => d.word);
+      feedback = `⚠️ Bạn phát âm đúng ${matchedCount}/${targetWords.length} từ.${
+        missedWords.length > 0 ? ` Cần phát âm rõ hơn các từ: ${missedWords.join(', ')}.` : ''
+      }`;
+      statusText = `CẦN LUYỆN THÊM (${score}%)`;
     } else {
-      feedback = '🎯 Chưa chính xác. Hãy bấm nút nghe mẫu chậm rồi đọc lại nhé!';
-      statusText = 'CHƯA ĐẠT CHUẨN';
+      feedback = '🎯 Chưa chính xác. Hãy nghe lại phát âm mẫu và luyện đọc lại từng từ nhé!';
+      statusText = `CHƯA ĐẠT CHUẨN (${score}%)`;
     }
 
     return { score, feedback, details, isCorrect, statusText };

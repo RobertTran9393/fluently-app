@@ -30,6 +30,8 @@ export function IpaMastery() {
     score: number;
     feedback: string;
     details: { word: string; matched: boolean }[];
+    isCorrect: boolean;
+    statusText: string;
   } | null>(null);
   const [activeListeningSession, setActiveListeningSession] = useState<{ stop: () => void } | null>(null);
 
@@ -82,10 +84,10 @@ export function IpaMastery() {
           const result = SpeechService.calculateAccuracy(transcript, targetWord);
           setEvaluation(result);
 
-          if (result.score >= 70 && selectedSound) {
+          if (result.isCorrect && selectedSound) {
             SpeechService.playFeedbackSound('correct');
             markIpaMastered(selectedSound.id);
-            if (result.score >= 85) triggerCelebration();
+            if (result.score >= 90) triggerCelebration();
           } else if (isFinal) {
             SpeechService.playFeedbackSound('wrong');
           }
@@ -390,16 +392,16 @@ export function IpaMastery() {
                   {evaluation && (
                     <div
                       className={`p-4 rounded-xl border space-y-2 ${
-                        evaluation.score >= 80
+                        evaluation.isCorrect
                           ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                          : evaluation.score >= 50
+                          : evaluation.score >= 55
                           ? 'bg-amber-50 border-amber-200 text-amber-900'
                           : 'bg-rose-50 border-rose-200 text-rose-900'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-black flex items-center gap-1.5">
-                          {evaluation.score >= 70 ? (
+                          {evaluation.isCorrect ? (
                             <span className="text-emerald-700 font-extrabold">✅ ĐÃ ĐỌC CHÍNH XÁC!</span>
                           ) : (
                             <span className="text-rose-700 font-extrabold">🎯 CHƯA CHÍNH XÁC</span>

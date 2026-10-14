@@ -100,6 +100,8 @@ export function DailyVocabView() {
     score: number;
     feedback: string;
     details: { word: string; matched: boolean }[];
+    isCorrect: boolean;
+    statusText: string;
   } | null>(null);
   const recognitionStopperRef = useRef<(() => void) | null>(null);
 
@@ -231,9 +233,9 @@ export function DailyVocabView() {
           const evaluation = SpeechService.calculateAccuracy(transcript, currentWord.word);
           setSpeechAccuracy(evaluation);
 
-          if (evaluation.isCorrect || evaluation.score >= 80) {
+          if (evaluation.isCorrect) {
             SpeechService.playFeedbackSound('correct');
-            // Auto mark as learned if high score
+            // Auto mark as learned only if pronunciation is truly correct
             if (!learnedWordIds.includes(currentWord.id)) {
               handleToggleLearned(currentWord.id);
             }
@@ -682,9 +684,9 @@ export function DailyVocabView() {
                 {speechAccuracy && (
                   <div
                     className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      speechAccuracy.score >= 80
+                      speechAccuracy.isCorrect
                         ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                        : speechAccuracy.score >= 50
+                        : speechAccuracy.score >= 60
                         ? 'bg-amber-50 border-amber-300 text-amber-900'
                         : 'bg-rose-50 border-rose-300 text-rose-900'
                     }`}
@@ -695,14 +697,18 @@ export function DailyVocabView() {
                           {speechAccuracy.score}%
                         </span>
                         <span className="font-extrabold text-sm">
-                          {speechAccuracy.score >= 80 ? '✅ ĐÃ ĐỌC CHÍNH XÁC!' : speechAccuracy.score >= 50 ? '👍 Khá tốt - Cần chú ý âm đuôi' : '🎯 Chưa chính xác'}
+                          {speechAccuracy.isCorrect
+                            ? '✅ ĐÃ ĐỌC CHÍNH XÁC!'
+                            : speechAccuracy.score >= 60
+                            ? '⚠️ Cần sửa lại âm'
+                            : '❌ Chưa chính xác'}
                         </span>
                       </div>
                       <p className="text-xs">{speechAccuracy.feedback}</p>
                     </div>
 
                     <div className="text-xs flex items-center gap-1 font-semibold">
-                      {speechAccuracy.score >= 80 ? (
+                      {speechAccuracy.isCorrect ? (
                         <span className="px-2 py-1 rounded-md bg-emerald-200 text-emerald-900 font-bold">
                           🎉 Đã thuộc từ vựng này!
                         </span>
