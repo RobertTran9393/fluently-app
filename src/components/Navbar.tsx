@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
   ShieldCheck,
   GraduationCap,
+  LogOut,
 } from 'lucide-react';
 import { LearningStage } from '../types';
 
@@ -34,7 +35,7 @@ export function Navbar({
   onOpenAuth,
 }: NavbarProps) {
   const { state } = useProgress();
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   const isStudent = currentUser?.role !== 'admin';
 
   const navItems = [
@@ -164,6 +165,17 @@ export function Navbar({
             >
               <Settings className="w-4 h-4" />
             </button>
+
+            {/* Logout button */}
+            {currentUser && (
+              <button
+                onClick={logout}
+                title="Đăng xuất tài khoản"
+                className="p-2 rounded-xl text-gray-500 hover:text-rose-600 hover:bg-rose-50 border border-gray-200 transition-colors shrink-0"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 

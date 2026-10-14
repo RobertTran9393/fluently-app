@@ -101,7 +101,7 @@ const DEFAULT_SEED_USERS: User[] = [
 
 function getInitialAuthState(): { users: User[]; currentUser: User | null } {
   if (typeof window === 'undefined') {
-    return { users: DEFAULT_SEED_USERS, currentUser: DEFAULT_SEED_USERS[1] };
+    return { users: DEFAULT_SEED_USERS, currentUser: null };
   }
   try {
     const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
@@ -117,14 +117,11 @@ function getInitialAuthState(): { users: User[]; currentUser: User | null } {
     if (storedSession) {
       const parsed = JSON.parse(storedSession);
       current = loadedUsers.find((u) => u.id === parsed.id) || parsed;
-    } else {
-      current = loadedUsers.find((u) => u.id === 'student_1') || loadedUsers[1];
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(current));
     }
     return { users: loadedUsers, currentUser: current };
   } catch (e) {
     console.warn('Error loading auth from localStorage:', e);
-    return { users: DEFAULT_SEED_USERS, currentUser: DEFAULT_SEED_USERS[1] };
+    return { users: DEFAULT_SEED_USERS, currentUser: null };
   }
 }
 

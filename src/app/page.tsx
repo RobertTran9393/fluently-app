@@ -2,7 +2,7 @@
 
 import React, { useState, useSyncExternalStore } from 'react';
 import { ProgressProvider } from '../context/ProgressContext';
-import { AuthProvider } from '../context/AuthContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { RoadmapView } from '../components/RoadmapView';
 import { DailyVocabView } from '../components/DailyVocabView';
@@ -15,6 +15,7 @@ import { AiRoleplayView } from '../components/AiRoleplayView';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { SettingsModal } from '../components/SettingsModal';
 import { AuthModal } from '../components/AuthModal';
+import { AuthScreen } from '../components/AuthScreen';
 import { LearningStage } from '../types';
 import {
   Heart,
@@ -44,9 +45,15 @@ const mobileBottomNavItems = [
 ];
 
 function MainApp() {
+  const { currentUser } = useAuth();
   const [currentTab, setCurrentTab] = useState<LearningStage>('roadmap');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  // If user is not logged in, display the dedicated login/register screen
+  if (!currentUser) {
+    return <AuthScreen />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-indigo-500 selection:text-white">
