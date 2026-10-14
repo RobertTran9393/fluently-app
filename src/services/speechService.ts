@@ -181,11 +181,20 @@ export class SpeechService {
     };
 
     recognition.onerror = (event: ISpeechRecognitionErrorEvent) => {
-      let message = 'Lỗi nhận diện âm thanh.';
-      if (event.error === 'not-allowed') {
-        message = 'Bạn chưa cấp quyền truy cập Micro. Hãy bấm biểu tượng Micro trên thanh địa chỉ để cấp quyền nhé.';
+      // Normal cancellations when user taps stop or switches words - ignore silently
+      if (event.error === 'aborted') {
+        return;
+      }
+
+      let message = 'Chưa nhận diện được âm thanh. Bạn hãy thử đọc lại nhé!';
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        message = 'Bạn chưa cấp quyền truy cập Micro. Hãy bấm biểu tượng Micro hoặc Ổ khóa trên thanh địa chỉ để Cho phép (Allow) nhé.';
       } else if (event.error === 'no-speech') {
-        message = 'Chưa nhận thấy tiếng nói. Hãy thử bấm lại và nói to hơn nhé!';
+        message = 'Chưa nhận thấy tiếng nói. Hãy thử bấm lại và đọc to, rõ ràng hơn nhé!';
+      } else if (event.error === 'network') {
+        message = 'Kết nối mạng tới máy chủ âm thanh bị gián đoạn. Bạn vui lòng bấm thử lại nhé!';
+      } else if (event.error === 'audio-capture') {
+        message = 'Không phát hiện thấy Micro trên thiết bị của bạn. Hãy kiểm tra kết nối micro nhé!';
       }
       callbacks.onError(message);
     };

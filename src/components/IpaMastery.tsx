@@ -26,6 +26,7 @@ export function IpaMastery() {
   const [targetWord, setTargetWord] = useState<string>('');
   const [isRecording, setIsRecording] = useState(false);
   const [spokenTranscript, setSpokenTranscript] = useState('');
+  const [micError, setMicError] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<{
     score: number;
     feedback: string;
@@ -52,6 +53,7 @@ export function IpaMastery() {
     setTargetWord(sound.examples[0].word);
     setEvaluation(null);
     setSpokenTranscript('');
+    setMicError(null);
     handlePlayWord(sound.examples[0].word);
   };
 
@@ -61,6 +63,7 @@ export function IpaMastery() {
       setActiveListeningSession(null);
     }
     setIsRecording(false);
+    setMicError(null);
     setSelectedSound(null);
   };
 
@@ -75,6 +78,7 @@ export function IpaMastery() {
 
     setSpokenTranscript('');
     setEvaluation(null);
+    setMicError(null);
     setIsRecording(true);
 
     const session = SpeechService.startListening({
@@ -94,7 +98,7 @@ export function IpaMastery() {
         }
       },
       onError: (err) => {
-        alert(err);
+        setMicError(err);
         setIsRecording(false);
       },
       onEnd: () => {
@@ -378,6 +382,19 @@ export function IpaMastery() {
                   )}
                 </button>
               </div>
+
+              {/* Inline Non-blocking Mic Error */}
+              {micError && (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs flex items-center justify-between gap-2 animate-in fade-in">
+                  <span>⚠️ {micError}</span>
+                  <button
+                    onClick={() => setMicError(null)}
+                    className="text-amber-800 hover:text-amber-950 font-bold underline shrink-0"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              )}
 
               {/* Realtime voice result & evaluation */}
               {spokenTranscript && (

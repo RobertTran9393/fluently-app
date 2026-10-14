@@ -246,7 +246,13 @@ export function DailyVocabView() {
       },
       onError: (err) => {
         setIsRecording(false);
-        console.warn('STT Error:', err);
+        setSpeechAccuracy({
+          score: 0,
+          feedback: err,
+          details: [],
+          isCorrect: false,
+          statusText: 'Chưa thu được giọng nói',
+        });
       },
       onEnd: () => {
         setIsRecording(false);
